@@ -1,4 +1,4 @@
-# JavaCV to Wowza - StarterKit
+# JavaCV to Wowza - Android Boilerplate
 
 Few short notes for the beginning. 
 
