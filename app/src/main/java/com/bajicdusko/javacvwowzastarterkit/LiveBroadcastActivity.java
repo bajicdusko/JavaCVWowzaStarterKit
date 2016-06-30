@@ -1,4 +1,4 @@
-package com.bajicdusko.javacvstarterkit;
+package com.bajicdusko.javacvwowzastarterkit;
 
 import android.Manifest;
 import android.content.DialogInterface;
@@ -30,7 +30,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-import bajicdusko.javacvwowzastarterkit.R;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
@@ -105,11 +104,9 @@ public class LiveBroadcastActivity extends AppCompatActivity implements Camera.P
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN);
         setContentView(R.layout.activity_live_broadcast);
         ButterKnife.bind(this);
-        View decorView = getWindow().getDecorView();
-        int uiOptions = View.SYSTEM_UI_FLAG_FULLSCREEN;
-        decorView.setSystemUiVisibility(uiOptions);
 
         screenWidth = getResources().getDisplayMetrics().widthPixels;
         screenHeight = getResources().getDisplayMetrics().heightPixels;
@@ -372,7 +369,7 @@ public class LiveBroadcastActivity extends AppCompatActivity implements Camera.P
 
         StringBuilder builder = new StringBuilder();
         builder.append(PROTOCOL);
-        if (TextUtils.isEmpty(wowzaUsername) && TextUtils.isEmpty(wowzaPassword)) {
+        if (!TextUtils.isEmpty(wowzaUsername) && !TextUtils.isEmpty(wowzaPassword)) {
             builder.append(wowzaUsername).append(":").append(wowzaPassword).append("@");
         }
 
@@ -404,6 +401,7 @@ public class LiveBroadcastActivity extends AppCompatActivity implements Camera.P
 
         } catch (FFmpegFrameRecorder.Exception e) {
             e.printStackTrace();
+            btBroadcast.setImageResource(R.drawable.ic_broadcast);
         }
     }
 
