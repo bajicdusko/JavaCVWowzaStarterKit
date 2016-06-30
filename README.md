@@ -1,4 +1,4 @@
-# JavaCVWowzaStarterKit
+# JavaCV to Wowza - StarterKit
 
 Few short notes for the beginning. 
 
