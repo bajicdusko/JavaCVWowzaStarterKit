@@ -62,12 +62,12 @@ public class LiveBroadcastActivity extends AppCompatActivity implements Camera.P
     ImageView btFlash;
 
     //broadcast credentials (if stream source requires authentication)
-    private String wowzaUsername = "bajicdusko_test";
-    private String wowzaPassword = "bajicdusko_test";
-    private String wowzaIp = "192.168.0.35"; //"xxx.xxx.xxx.xxx";
+    private String wowzaUsername;
+    private String wowzaPassword;
+    private String wowzaIp = "xxx.xxx.xxx.xxx";
     private int wowzaLivePort = 1935; //by default Wowza settings
-    private String wowzaApplicationName = "live";
-    private String wowzaStreamName = "android";
+    private String wowzaApplicationName = "";
+    private String wowzaStreamName = "";
 
     private int sampleAudioRateInHz = 44100;
     private int imageWidth = 360;
