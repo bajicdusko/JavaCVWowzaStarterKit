@@ -1,9 +1,8 @@
-<RelativeLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@android:color/black"
-    android:keepScreenOn="true">
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@android:color/black"
+                android:keepScreenOn="true">
 
     <SurfaceView
         android:id="@+id/activity_live_broadcast_sv_video"
@@ -19,7 +18,8 @@
         android:layout_alignParentTop="true"
         android:layout_marginRight="@dimen/activity_horizontal_margin"
         android:layout_marginTop="@dimen/activity_horizontal_margin"
-        android:src="@drawable/ic_flash_on"/>
+        android:src="@drawable/ic_flash_on"
+        android:visibility="gone"/>
 
     <ImageView
         android:id="@+id/activity_live_broadcast_bt_broadcast"
@@ -40,6 +40,7 @@
         android:layout_alignParentRight="true"
         android:layout_marginBottom="@dimen/activity_horizontal_margin"
         android:layout_marginRight="@dimen/activity_horizontal_margin"
-        android:src="@drawable/ic_camera_toggle"/>
+        android:src="@drawable/ic_camera_toggle"
+        android:visibility="gone"/>
 
 </RelativeLayout>

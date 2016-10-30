@@ -66,14 +66,14 @@ public class LiveBroadcastActivity extends AppCompatActivity implements Camera.P
     private String wowzaPassword;
     private String wowzaIp = "xxx.xxx.xxx.xxx";
     private int wowzaLivePort = 1935; //by default Wowza settings
-    private String wowzaApplicationName = "";
-    private String wowzaStreamName = "";
+    private String wowzaApplicationName = "live";
+    private String wowzaStreamName = "android";
 
     private int sampleAudioRateInHz = 44100;
-    private int imageWidth = 360;
-    private int imageHeight = 280;
-    private int frameRate = 15;
-    private int VIDEO_BITRATE = 500 * 1000;
+    private int imageWidth;
+    private int imageHeight;
+    private int frameRate = 30;
+    private int VIDEO_BITRATE = 700 * 1000;
     private int AUDIO_BITRATE = 8 * 1000;
 
     /* audio data getting thread */
@@ -93,7 +93,7 @@ public class LiveBroadcastActivity extends AppCompatActivity implements Camera.P
     private boolean isPreviewOn = false;
     private int screenHeight;
     private int screenWidth;
-    private final int videoWidth = 720;
+    private final int videoWidth = 854;
     private final int videoHeight = 480;
 
     private boolean isFlashOn = false;
@@ -288,7 +288,7 @@ public class LiveBroadcastActivity extends AppCompatActivity implements Camera.P
         // Pick the first preview size that is equal or bigger, or pick the last (biggest) option if we cannot
         // reach the initial settings of imageWidth/imageHeight.
         for (int i = 0; i < sizes.size(); i++) {
-            if ((sizes.get(i).width >= imageWidth && sizes.get(i).height >= imageHeight) || i == sizes.size() - 1) {
+            if ((sizes.get(i).width >= videoWidth && sizes.get(i).height >= videoHeight) || i == sizes.size() - 1) {
                 imageWidth = sizes.get(i).width;
                 imageHeight = sizes.get(i).height;
                 Log.v(LOG_TAG, "Changed to supported resolution: " + imageWidth + "x" + imageHeight);
