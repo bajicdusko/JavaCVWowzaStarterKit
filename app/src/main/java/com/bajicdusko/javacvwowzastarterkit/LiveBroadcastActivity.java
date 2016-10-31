@@ -2,7 +2,6 @@ package com.bajicdusko.javacvwowzastarterkit;
 
 import android.Manifest;
 import android.content.DialogInterface;
-import android.content.pm.PackageManager;
 import android.hardware.Camera;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
@@ -18,6 +17,8 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.Toast;
+
+import com.bajicdusko.javacvwowzastarterkit.exceptions.NoCameraDeviceFoundException;
 
 import org.bytedeco.javacpp.avcodec;
 import org.bytedeco.javacv.FFmpegFrameRecorder;
@@ -47,9 +48,6 @@ public class LiveBroadcastActivity extends AppCompatActivity implements Camera.P
     private final static String LOG_TAG = CLASS_LABEL;
     private final String EMPTY_STRING = "";
 
-    private final int NO_ACTIVE_CAMERA = -1;
-    private final int BACK_CAMERA_ID = Camera.CameraInfo.CAMERA_FACING_BACK;
-    private final int FRONT_CAMERA_ID = Camera.CameraInfo.CAMERA_FACING_FRONT;
     private final String PROTOCOL = "rtmp://";
 
     @BindView(R.id.activity_live_broadcast_sv_video)
@@ -83,7 +81,6 @@ public class LiveBroadcastActivity extends AppCompatActivity implements Camera.P
     volatile boolean runAudioThread = true;
 
     /* video data getting thread */
-    private Camera cameraDevice;
     private FFmpegFrameRecorder recorder;
 
     private Frame yuvImage = null;
@@ -97,9 +94,10 @@ public class LiveBroadcastActivity extends AppCompatActivity implements Camera.P
     private final int videoHeight = 480;
 
     private boolean isFlashOn = false;
-    private int activeCameraId = NO_ACTIVE_CAMERA;
     private boolean cameraToggleEnabled = true;
     private boolean continueRecordingOnSwitch = false;
+    private CameraManager cameraManager;
+    private SurfaceHolder.Callback surfaceCallback;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -107,12 +105,18 @@ public class LiveBroadcastActivity extends AppCompatActivity implements Camera.P
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN);
         setContentView(R.layout.activity_live_broadcast);
         ButterKnife.bind(this);
+        cameraManager = new CameraManager();
 
         screenWidth = getResources().getDisplayMetrics().widthPixels;
         screenHeight = getResources().getDisplayMetrics().heightPixels;
         setSurfaceSize(videoWidth, videoHeight);
+    }
 
-        LiveBroadcastActivityPermissionsDispatcher.initCameraWithCheck(this);
+    @Override
+    protected void onResume() {
+        super.onResume();
+        surfaceCallback = LiveBroadcastActivity.this;
+        LiveBroadcastActivityPermissionsDispatcher.startInitializationSequenceWithCheck(LiveBroadcastActivity.this);
     }
 
     private void setSurfaceSize(int videoWidth, int videoHeight) {
@@ -120,62 +124,30 @@ public class LiveBroadcastActivity extends AppCompatActivity implements Camera.P
     }
 
     @NeedsPermission({Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO})
-    public void initCamera() {
+    public void startInitializationSequence() {
+        cameraManager.releaseCamera();
         try {
-
-            if (cameraDevice != null) {
-                cameraDevice.setPreviewCallback(null);
-                cameraDevice.release();
-            }
-
-            if (Camera.getNumberOfCameras() == 0) {
-                Toast.makeText(this, "Device does not have camera.", Toast.LENGTH_SHORT).show();
-            } else {
-                if (Camera.getNumberOfCameras() == 1) {
-                    cameraToggleEnabled = false;
-                    btToggle.setEnabled(false);
-                }
-
-                if (activeCameraId == NO_ACTIVE_CAMERA) {
-                    Camera backCamera = Camera.open(BACK_CAMERA_ID);
-                    if (backCamera != null) {
-                        activeCameraId = BACK_CAMERA_ID;
-                        cameraDevice = backCamera;
-                    } else {
-                        Camera frontCamera = Camera.open(FRONT_CAMERA_ID);
-                        if (frontCamera != null) {
-                            activeCameraId = FRONT_CAMERA_ID;
-                            cameraDevice = frontCamera;
-                        } else {
-                            Toast.makeText(this, "Front camera could not be initiated", Toast.LENGTH_SHORT).show();
-                        }
-                    }
-
-                    if (cameraDevice != null) {
-                        SurfaceHolder mHolder = svVideo.getHolder();
-                        mHolder.addCallback(this);
-                        mHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
-                    }
-                } else {
-                    //used for switching purposes
-                    cameraDevice = Camera.open(activeCameraId);
-                    cameraDevice.setPreviewDisplay(svVideo.getHolder());
-                    cameraDevice.setPreviewCallback(this);
-                    cameraDevice.startPreview();
-                    if (continueRecordingOnSwitch) {
-                        startRecording();
-                    }
-                }
-            }
-        } catch (Exception e) {
-            Toast.makeText(this, "Error occured while accessing camera.", Toast.LENGTH_SHORT).show();
+            cameraManager.initCamera();
+            initSurfaceCallback();
+        } catch (NoCameraDeviceFoundException e) {
+            Toast.makeText(this, "Camera not found on device.", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void initSurfaceCallback() {
+        SurfaceHolder mHolder = svVideo.getHolder();
+        mHolder.addCallback(surfaceCallback);
+        mHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+    }
+
+    private void releaseSurfaceCallback(SurfaceHolder holder) {
+        holder.addCallback(null);
     }
 
     @OnClick(R.id.activity_live_broadcast_sv_video)
     public void onSurfaceClick() {
-        if (cameraDevice != null) {
-            cameraDevice.autoFocus(new Camera.AutoFocusCallback() {
+        if (cameraManager.getCamera() != null) {
+            cameraManager.getCamera().autoFocus(new Camera.AutoFocusCallback() {
                 @Override
                 public void onAutoFocus(boolean b, Camera camera) {
 
@@ -193,48 +165,12 @@ public class LiveBroadcastActivity extends AppCompatActivity implements Camera.P
         }
     }
 
-    @OnClick(R.id.activity_live_broadcast_bt_flash)
-    public void onFlashClick() {
-        if (cameraDevice != null) {
-            if (getApplicationContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_FLASH)) {
-                Camera.Parameters params = cameraDevice.getParameters();
-                params.setFlashMode(isFlashOn == false ? Camera.Parameters.FLASH_MODE_TORCH : Camera.Parameters.FLASH_MODE_OFF);
-                isFlashOn = !isFlashOn;
-                btFlash.setImageResource(isFlashOn ? R.drawable.ic_flash_off : R.drawable.ic_flash_on);
-            } else {
-                Toast.makeText(this, "Camera does not have flashlight", Toast.LENGTH_SHORT).show();
-            }
-        }
-    }
-
-    @OnClick(R.id.activity_live_broadcast_bt_toggle)
-    public void onToggleCameraClick() {
-        if (cameraToggleEnabled && activeCameraId != NO_ACTIVE_CAMERA) {
-            continueRecordingOnSwitch = true;
-            stopRecording();
-            stopPreview();
-            activeCameraId = activeCameraId == BACK_CAMERA_ID ? FRONT_CAMERA_ID : BACK_CAMERA_ID;
-            LiveBroadcastActivityPermissionsDispatcher.initCameraWithCheck(this);
-        }
-    }
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
-
         recording = false;
-
-        try {
-            stopPreview();
-        } catch (Exception ex) {
-
-        }
-
-        if (cameraDevice != null) {
-            cameraDevice.stopPreview();
-            cameraDevice.release();
-            cameraDevice = null;
-        }
+        cameraManager.stopPreview();
+        cameraManager.releaseCamera();
     }
 
     @Override
@@ -244,7 +180,6 @@ public class LiveBroadcastActivity extends AppCompatActivity implements Camera.P
             return;
         }
 
-            /* get video data */
         if (yuvImage != null && recording) {
             ((ByteBuffer) yuvImage.image[0].position(0)).put(bytes);
 
@@ -265,18 +200,17 @@ public class LiveBroadcastActivity extends AppCompatActivity implements Camera.P
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
         try {
-            stopPreview();
-            cameraDevice.setPreviewDisplay(holder);
+            cameraManager.stopPreview();
+            cameraManager.initPreview(holder, null);
         } catch (IOException exception) {
-            cameraDevice.release();
-            cameraDevice = null;
+            cameraManager.releaseCamera();
         }
     }
 
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        stopPreview();
+        cameraManager.stopPreview();
 
-        Camera.Parameters camParams = cameraDevice.getParameters();
+        Camera.Parameters camParams = cameraManager.getCamera().getParameters();
         List<Camera.Size> sizes = camParams.getSupportedPreviewSizes();
         Collections.sort(sizes, new Comparator<Camera.Size>() {
 
@@ -303,12 +237,11 @@ public class LiveBroadcastActivity extends AppCompatActivity implements Camera.P
         camParams.setPreviewFrameRate(frameRate);
         Log.v(LOG_TAG, "Preview Framerate: " + camParams.getPreviewFrameRate());
 
-        cameraDevice.setParameters(camParams);
+        cameraManager.getCamera().setParameters(camParams);
 
         try {
-            cameraDevice.setPreviewDisplay(holder);
-            cameraDevice.setPreviewCallback(LiveBroadcastActivity.this);
-            startPreview();
+            cameraManager.initPreview(holder, LiveBroadcastActivity.this);
+            cameraManager.startPreview();
         } catch (Exception e) {
             Log.e(LOG_TAG, "Could not set preview display in surfaceChanged");
         }
@@ -317,23 +250,9 @@ public class LiveBroadcastActivity extends AppCompatActivity implements Camera.P
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
         try {
-            holder.addCallback(null);
-            cameraDevice.setPreviewCallback(null);
+            releaseSurfaceCallback(holder);
+            cameraManager.releaseCamera();
         } catch (RuntimeException e) {
-        }
-    }
-
-    private void startPreview() {
-        if (!isPreviewOn && cameraDevice != null) {
-            isPreviewOn = true;
-            cameraDevice.startPreview();
-        }
-    }
-
-    public void stopPreview() {
-        if (isPreviewOn && cameraDevice != null) {
-            isPreviewOn = false;
-            cameraDevice.stopPreview();
         }
     }
 
@@ -402,6 +321,8 @@ public class LiveBroadcastActivity extends AppCompatActivity implements Camera.P
         } catch (FFmpegFrameRecorder.Exception e) {
             e.printStackTrace();
             btBroadcast.setImageResource(R.drawable.ic_broadcast);
+        } catch (Exception e) {
+            Log.e(LOG_TAG, e.getMessage());
         }
     }
 
